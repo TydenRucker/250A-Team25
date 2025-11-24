@@ -1,5 +1,6 @@
 import os, glob
 from librosa import fmt
+from tqdm import tqdm
 import pandas as pd
 import numpy as np
 
@@ -18,18 +19,13 @@ for i, root in enumerate(ROOTS):
 
 def parse_label(label): 
     if label == 'N': return 0
-
     try: 
         root, quality = label.split(':')
-    except ValueError:
-        return 0
+    except ValueError: return 0
     
-    if 'maj' in quality: 
-        simple_key = f"{root}:maj"
-    elif 'min' in quality: 
-        simple_key = f"{root}:min"
+    if 'maj' in quality: simple_key = f"{root}:maj"
+    elif 'min' in quality: simple_key = f"{root}:min"
     else: return 0
-
     return CHORD_MAP.get(simple_key, 0)
 
 n_states = 25
@@ -42,32 +38,51 @@ state_obs = {i: [] for i in range(n_states)}
 song_ids = [
     d for d in os.listdir(ANNOT_DIR) if os.path.isdir(os.path.join(ANNOT_DIR, d))
 ]
+print(f"Found {len(song_ids)} songs. Processing...")
 
-for song_id in song_ids: 
+for song_id in tqdm(song_ids, desc="Processing songs"): 
     lab_path_pattern = os.path.join(ANNOT_DIR, song_id, '*.lab')
     lab_files = glob.glob(lab_path_pattern)
     chroma_path = os.path.join(META_DIR, song_id, 'bothchroma.csv')
 
     if not lab_files or not os.path.exists(chroma_path):
         continue 
-    chroma_df = pd.read_csv(chroma_path)
-    lab_df = pd.read_csv(lab_files[0], sep = '\t', names = ['start', 'end', 'label'])
 
-    chroma_times = chroma_df.iloc[:, 0].values
-    chroma_vals = chroma_df.iloc[:, 1:].values
-    frame_states = np.zeros(len(chroma_df), dtype = int)
+    try:
+        chroma_df = pd.read_csv(chroma_path, header=None)
+        
+        chroma_times = pd.to_numeric(chroma_df.iloc[:, 1], errors='coerce').values
+        chroma_vals = chroma_df.iloc[:, 2:14].values
+        
+        valid_mask = ~np.isnan(chroma_times)
+        chroma_times = chroma_times[valid_mask]
+        chroma_vals = chroma_vals[valid_mask]
+        
+    except Exception as e:
+        print(f"Error loading chroma for {song_id}: {e}")
+        continue
+
+    try:
+        lab_df = pd.read_csv(lab_files[0], sep='\s+', names=['start', 'end', 'label'])
+    except Exception as e:
+        print(f"Error loading lab for {song_id}: {e}")
+        continue
+
+    frame_states = np.zeros(len(chroma_times), dtype=int)
+    has_matches = False
 
     for _, row in lab_df.iterrows():
         mask = (chroma_times >= row['start']) & (chroma_times < row['end'])
         if np.any(mask): 
+            has_matches = True
             state_idx = parse_label(row['label'])
             frame_states[mask] = state_idx
             state_obs[state_idx].extend(chroma_vals[mask])
 
-        if len(frame_states) > 0: 
-            start_counts[frame_states[0]] += 1
-            for current, next_s in zip(frame_states[:-1], frame_states[1:]): 
-                trans_counts[current, next_s] += 1
+    if has_matches: 
+        start_counts[frame_states[0]] += 1
+        for current, next_s in zip(frame_states[:-1], frame_states[1:]): 
+            trans_counts[current, next_s] += 1
 
 pi = start_counts / np.sum(start_counts)
 row_sums = trans_counts.sum(axis = 1, keepdims = True)

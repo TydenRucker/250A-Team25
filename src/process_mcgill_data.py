@@ -1,10 +1,18 @@
-import os, glob
-from librosa import fmt
+import os, glob, random, argparse
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
 
-SAVE_DIR = os.path.join('..', 'models', 'mcgill_hmm')
+parser = argparse.ArgumentParser(description="Train HMM on McGill Dataset")
+parser.add_argument(
+    '--split', 
+    type=float, 
+    default=1.0, 
+    help="Train set ratio (0.0 to 1.0). Default is 1.0 (use all data)."
+)
+args = parser.parse_args()
+
+SAVE_DIR = os.path.join('..', 'models', f'mcgill_hmm_{int(args.split * 100)}_train')
 os.makedirs(SAVE_DIR, exist_ok = True)
 ROOT_DIR = os.path.join('..', 'data', 'mcgill')
 ANNOT_DIR = os.path.join(ROOT_DIR, 'annotations', 'annotations')
@@ -48,9 +56,28 @@ state_obs = {i: [] for i in range(n_states)}
 song_ids = [
     d for d in os.listdir(ANNOT_DIR) if os.path.isdir(os.path.join(ANNOT_DIR, d))
 ]
-print(f"Found {len(song_ids)} songs. Processing...")
 
-for song_id in tqdm(song_ids, desc="Processing songs"): 
+random.seed(42) 
+random.shuffle(song_ids)
+
+n_total = len(song_ids)
+n_train = int(n_total * args.split)
+
+train_ids = song_ids[:n_train]
+test_ids = song_ids[n_train:]
+
+print(f"Total Songs: {n_total}")
+print(f"Training on: {len(train_ids)} songs")
+print(f"Testing on:  {len(test_ids)} songs")
+
+if len(test_ids) > 0:
+    test_file_path = os.path.join(SAVE_DIR, 'test_ids.txt')
+    print(f"Saving test IDs to {test_file_path}...")
+    with open(test_file_path, 'w') as f:
+        for tid in test_ids:
+            f.write(f"{tid}\n")
+
+for song_id in tqdm(train_ids, desc="Processing songs"): 
     lab_path_pattern = os.path.join(ANNOT_DIR, song_id, '*.lab')
     lab_files = glob.glob(lab_path_pattern)
     chroma_path = os.path.join(META_DIR, song_id, 'bothchroma.csv')

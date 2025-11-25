@@ -1,10 +1,19 @@
-import os
+import os, glob
 import numpy as np
 import pandas as pd
 from hmmlearn import hmm
+from tqdm import tqdm
 
-MODEL_DIR = os.path.join('..', 'models', 'mcgill_hmm')
-TEST_SONG_PATH = os.path.join('..', 'data', 'mcgill', 'metadata', 'metadata', '1069', 'bothchroma.csv')
+MODEL_DIR = os.path.join('..', 'models', 'mcgill_hmm_80_train')
+ROOT_DIR = os.path.join('..', 'data', 'mcgill')
+ANNOT_DIR = os.path.join(ROOT_DIR, 'annotations', 'annotations')
+META_DIR = os.path.join(ROOT_DIR, 'metadata', 'metadata')
+TEST_IDS_PATH = os.path.join(MODEL_DIR, 'test_ids.txt')
+
+ENHARMONIC_MAP = { 
+    'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 
+    'Bb': 'A#', 'Cb': 'B', 'Fb': 'E', 
+}
 
 def load_hmm_from_files(model_dir): 
     print("Loading HMM model parameters from files...")
@@ -33,40 +42,106 @@ def load_hmm_from_files(model_dir):
     print("Model successfully built.")
     return model
 
-def get_chord_map(model_dir): 
-    idx_to_chord = {}
-    with open(os.path.join(model_dir, 'mcgill_hmm_chord_map.txt'), 'r') as f:
+def load_chord_map(model_dir):
+    chord_map = {} 
+    label_map = {} 
+    
+    map_path = os.path.join(model_dir, 'mcgill_hmm_chord_map.txt')
+    if not os.path.exists(map_path):
+        raise FileNotFoundError(f"Could not find chord map at {map_path}")
+        
+    with open(map_path, 'r') as f:
         for line in f:
             idx, label = line.strip().split('\t')
-            idx_to_chord[int(idx)] = label
-    return idx_to_chord
+            chord_map[int(idx)] = label
+            label_map[label] = int(idx)
+    return chord_map, label_map
+
+def parse_label(label, label_map_dict): 
+    if label == 'N': return 0 
+    try: 
+        root, quality = label.split(':') 
+    except ValueError: return 0 
+
+    root = ENHARMONIC_MAP.get(root, root) 
+    
+    if 'maj' in quality: simple_key = f"{root}:maj" 
+    elif 'min' in quality: simple_key = f"{root}:min" 
+    else: return 0 
+    
+    return label_map_dict.get(simple_key, 0)
+
+def evaluate_test_set(model, test_ids, label_map):
+    total_frames = 0
+    correct_frames = 0
+    songs_evaluated = 0
+
+    print(f"\nEvaluating on {len(test_ids)} songs...")
+
+    for song_id in tqdm(test_ids):
+        song_id = song_id.strip() 
+        
+        lab_files = glob.glob(os.path.join(ANNOT_DIR, song_id, '*.lab'))
+        chroma_path = os.path.join(META_DIR, song_id, 'bothchroma.csv')
+
+        if not lab_files or not os.path.exists(chroma_path):
+            print(f"Skipping {song_id}: Files missing.")
+            continue
+
+        try:
+            chroma_df = pd.read_csv(chroma_path, header=None)
+            times = pd.to_numeric(chroma_df.iloc[:, 1], errors='coerce').values
+            features = chroma_df.iloc[:, 2:14].values
+            
+            valid_mask = ~np.isnan(times)
+            times = times[valid_mask]
+            features = features[valid_mask]
+
+            lab_df = pd.read_csv(lab_files[0], sep='\s+', names=['start', 'end', 'label'])
+            y_true = np.zeros(len(times), dtype=int)
+            
+            for _, row in lab_df.iterrows():
+                mask = (times >= row['start']) & (times < row['end'])
+                if np.any(mask):
+                    state_idx = parse_label(row['label'], label_map)
+                    y_true[mask] = state_idx
+
+            _, y_pred = model.decode(features, algorithm="viterbi")
+
+            min_len = min(len(y_true), len(y_pred))
+            matches = np.sum(y_true[:min_len] == y_pred[:min_len])
+            
+            correct_frames += matches
+            total_frames += min_len
+            songs_evaluated += 1
+
+        except Exception as e:
+            print(f"Error evaluating {song_id}: {e}")
+            continue
+
+    if total_frames == 0:
+        return 0.0
+    
+    return correct_frames / total_frames
 
 if __name__ == "__main__": 
-    model = load_hmm_from_files(MODEL_DIR)
-    chord_map = get_chord_map(MODEL_DIR)
+    try:
+        model = load_hmm_from_files(MODEL_DIR)
+        idx_to_chord, label_to_idx = load_chord_map(MODEL_DIR)
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        exit()
 
-    print("Testing HMM on a sample chroma file...")
-    df = pd.read_csv(TEST_SONG_PATH, header=None)
-    times = pd.to_numeric(df.iloc[:, 1], errors='coerce').values
-    features = df.iloc[:, 2:14].values
+    if not os.path.exists(TEST_IDS_PATH):
+        print(f"Test IDs file not found at {TEST_IDS_PATH}")
+        print("Please run the training script with --split < 1.0 first.")
+        exit()
+        
+    with open(TEST_IDS_PATH, 'r') as f:
+        test_ids = f.readlines()
 
-    mask = ~np.isnan(times)
-    times = times[mask]
-    features = features[mask]
-
-    print(f"Predicting chords for {TEST_SONG_PATH}...")
-    log_likelihood, state_sequence = model.decode(features, algorithm="viterbi")
-
-    print(f"\n{'Start':<8} {'End':<8} {'Chord'}")
-    print("-" * 30)
-
-    current_state = state_sequence[0]
-    start_t = times[0]
+    accuracy = evaluate_test_set(model, test_ids, label_to_idx)
     
-    for t, state in zip(times[1:], state_sequence[1:]):
-        if state != current_state:
-            print(f"{start_t:<8.2f} {t:<8.2f} {chord_map[current_state]}")
-            current_state = state
-            start_t = t
-            
-    print(f"{start_t:<8.2f} {times[-1]:<8.2f} {chord_map[current_state]}")
+    print("-" * 30)
+    print(f"Frame-Level Accuracy: {accuracy * 100:.2f}%")
+    print("-" * 30)

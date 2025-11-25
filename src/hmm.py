@@ -6,7 +6,7 @@ from hmmlearn import hmm
 MODEL_DIR = os.path.join('..', 'models', 'mcgill_hmm')
 TEST_SONG_PATH = os.path.join('..', 'data', 'mcgill', 'metadata', 'metadata', '1069', 'bothchroma.csv')
 
-def load_hmm_from_files(model_dir = MODEL_DIR): 
+def load_hmm_from_files(model_dir): 
     print("Loading HMM model parameters from files...")
 
     pi = np.loadtxt(os.path.join(model_dir, 'mcgill_hmm_pi.txt'))
@@ -33,7 +33,7 @@ def load_hmm_from_files(model_dir = MODEL_DIR):
     print("Model successfully built.")
     return model
 
-def get_chord_map(model_dir = MODEL_DIR): 
+def get_chord_map(model_dir): 
     idx_to_chord = {}
     with open(os.path.join(model_dir, 'mcgill_hmm_chord_map.txt'), 'r') as f:
         for line in f:
@@ -42,8 +42,8 @@ def get_chord_map(model_dir = MODEL_DIR):
     return idx_to_chord
 
 if __name__ == "__main__": 
-    model = load_hmm_from_files()
-    chord_map = get_chord_map()
+    model = load_hmm_from_files(MODEL_DIR)
+    chord_map = get_chord_map(MODEL_DIR)
 
     print("Testing HMM on a sample chroma file...")
     df = pd.read_csv(TEST_SONG_PATH, header=None)

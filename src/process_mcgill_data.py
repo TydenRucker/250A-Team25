@@ -18,14 +18,9 @@ ROOT_DIR = os.path.join('..', 'data', 'mcgill')
 ANNOT_DIR = os.path.join(ROOT_DIR, 'annotations', 'annotations')
 META_DIR = os.path.join(ROOT_DIR, 'metadata', 'metadata')
 
-ENHARMONIC_MAP = {
-    'Db': 'C#',
-    'Eb': 'D#',
-    'Gb': 'F#',
-    'Ab': 'G#',
-    'Bb': 'A#',
-    'Cb': 'B', 
-    'Fb': 'E', 
+ENHARMONIC_MAP = { 
+    'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 
+    'Bb': 'A#', 'Cb': 'B', 'Fb': 'E', 
 }
 CHORD_MAP = {'N': 0}
 ROOTS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']

@@ -39,7 +39,7 @@ def parse_label(label):
     root = ENHARMONIC_MAP.get(root, root)
     if 'maj' in quality: simple_key = f"{root}:maj"
     elif 'min' in quality: simple_key = f"{root}:min"
-    else: return 0
+    else: return 25
     return CHORD_MAP.get(simple_key, 0)
 
 n_states = 26

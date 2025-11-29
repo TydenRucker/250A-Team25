@@ -39,7 +39,7 @@ def load_hmm_from_files(model_dir):
     model.covars_ = covars
     model.n_features = n_features
     
-    print("Model successfully built.")
+    print("Model built successfully.")
     return model
 
 def load_chord_map(model_dir):
@@ -91,7 +91,7 @@ def evaluate_test_set(model, test_ids, label_map):
         try:
             chroma_df = pd.read_csv(chroma_path, header=None)
             times = pd.to_numeric(chroma_df.iloc[:, 1], errors='coerce').values
-            features = chroma_df.iloc[:, 2:14].values
+            features = chroma_df.iloc[:, 2:26].values
             
             valid_mask = ~np.isnan(times)
             times = times[valid_mask]

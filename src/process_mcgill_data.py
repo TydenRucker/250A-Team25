@@ -43,7 +43,7 @@ def parse_label(label):
     return CHORD_MAP.get(simple_key, 0)
 
 n_states = 26
-n_features = 12
+n_features = 24
 
 start_counts = np.ones(n_states)
 trans_counts = np.ones((n_states, n_states))
@@ -53,8 +53,8 @@ song_ids = [
     d for d in os.listdir(ANNOT_DIR) if os.path.isdir(os.path.join(ANNOT_DIR, d))
 ]
 
-random.seed(42) 
-random.shuffle(song_ids)
+# random.seed(42) 
+# random.shuffle(song_ids)
 
 n_total = len(song_ids)
 n_train = int(n_total * args.split)
@@ -85,7 +85,7 @@ for song_id in tqdm(train_ids, desc="Processing songs"):
         chroma_df = pd.read_csv(chroma_path, header=None)
         
         chroma_times = pd.to_numeric(chroma_df.iloc[:, 1], errors='coerce').values
-        chroma_vals = chroma_df.iloc[:, 2:14].values
+        chroma_vals = chroma_df.iloc[:, 2:2 + n_features].values
         
         valid_mask = ~np.isnan(chroma_times)
         chroma_times = chroma_times[valid_mask]
@@ -129,7 +129,7 @@ for i in range(n_states):
 
     if len(data) > 1: 
         means[i] = np.mean(data, axis = 0)
-        covars.append(np.cov(data, rowvar = False) + 1e-3 * np.eye(n_features))
+        covars.append(np.cov(data, rowvar = False) + 1 * np.eye(n_features))
     else: 
         means[i] = np.zeros(n_features)
         covars.append(np.eye(n_features))

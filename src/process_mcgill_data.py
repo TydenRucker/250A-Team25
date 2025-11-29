@@ -22,7 +22,7 @@ ENHARMONIC_MAP = {
     'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 
     'Bb': 'A#', 'Cb': 'B', 'Fb': 'E', 
 }
-CHORD_MAP = {'N': 0}
+CHORD_MAP = {'N': 0, 'X': 25}
 ROOTS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 for i, root in enumerate(ROOTS): 
@@ -31,6 +31,7 @@ for i, root in enumerate(ROOTS):
 
 def parse_label(label): 
     if label == 'N': return 0
+    if label == 'X': return 25
     try: 
         root, quality = label.split(':')
     except ValueError: return 0
@@ -41,7 +42,7 @@ def parse_label(label):
     else: return 0
     return CHORD_MAP.get(simple_key, 0)
 
-n_states = 25
+n_states = 26
 n_features = 12
 
 start_counts = np.ones(n_states)

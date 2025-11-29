@@ -59,6 +59,7 @@ def load_chord_map(model_dir):
 
 def parse_label(label, label_map_dict): 
     if label == 'N': return 0 
+    if label == 'X': return 25
     try: 
         root, quality = label.split(':') 
     except ValueError: return 0 

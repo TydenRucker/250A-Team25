@@ -53,8 +53,8 @@ song_ids = [
     d for d in os.listdir(ANNOT_DIR) if os.path.isdir(os.path.join(ANNOT_DIR, d))
 ]
 
-# random.seed(42) 
-# random.shuffle(song_ids)
+random.seed(42) 
+random.shuffle(song_ids)
 
 n_total = len(song_ids)
 n_train = int(n_total * args.split)
@@ -122,6 +122,7 @@ row_sums = trans_counts.sum(axis = 1, keepdims = True)
 A = np.divide(trans_counts, row_sums, out = np.zeros_like(trans_counts), where = row_sums != 0)
 
 means = np.zeros((n_states, n_features))
+covar_factor = 1
 covars = []
 
 for i in range(n_states): 
@@ -129,7 +130,7 @@ for i in range(n_states):
 
     if len(data) > 1: 
         means[i] = np.mean(data, axis = 0)
-        covars.append(np.cov(data, rowvar = False) + 1 * np.eye(n_features))
+        covars.append(np.cov(data, rowvar = False) + covar_factor * np.eye(n_features))
     else: 
         means[i] = np.zeros(n_features)
         covars.append(np.eye(n_features))

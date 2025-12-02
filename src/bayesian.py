@@ -3,6 +3,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 
 from read_data import load_data, preprocess
+from plotting import plot_confusion_matrix
 
 if __name__ == "__main__":
     print("loading data")
@@ -22,3 +23,5 @@ if __name__ == "__main__":
     y_pred = model.predict(X_test)
 
     print("accuracy:", accuracy_score(y_test, y_pred))
+
+    plot_confusion_matrix(y_test, y_pred, "bayesian.png")

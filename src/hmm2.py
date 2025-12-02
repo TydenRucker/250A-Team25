@@ -2,10 +2,12 @@ import numpy as np
 from tqdm import tqdm
 from hmmlearn import hmm
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, accuracy_score
 
 from read_data import load_data, preprocess
+from plotting import plot_confusion_matrix
 
-def calculate_probs(X, y, lengths):
+def calculate_probs(X, y, lengths, reg = 0.1):
     n_class = 26
 
     initial_counts = np.zeros(n_class)
@@ -32,9 +34,10 @@ def calculate_probs(X, y, lengths):
         X_c = X[y == c]
 
         means[c, :] = np.mean(X_c, axis = 0)
-        covars[c, :, :] = np.cov(X_c.T) + np.eye(n_feats)
+        covars[c, :, :] = np.cov(X_c.T) + np.eye(n_feats) * reg
 
     return initials, trans, means, covars
+
 
 def split_data_by_song(X, y, lengths, test_size = 0.2):
     song_indices = np.arange(len(lengths))
@@ -74,9 +77,9 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test, lengths_train, lengths_test = split_data_by_song(X, y, lengths, test_size = 0.2)
 
     print("training ghmm")
-    initials, trans, means, covars = calculate_probs(X_train, y_train, lengths_train)
-
     model = hmm.GaussianHMM(n_components = 26, covariance_type = "full")
+
+    initials, trans, means, covars = calculate_probs(X_train, y_train, lengths_train)
 
     model.startprob_ = initials
     model.transmat_ = trans
@@ -85,18 +88,19 @@ if __name__ == "__main__":
 
     print("predicting")
     # viterbi
-    correct = 0
-    total = 0
     
     cur = 0
+    y_pred = []
     for l in tqdm(lengths_test):
         song_X = X_test[cur : cur + l]
         song_y = y_test[cur : cur + l]
         cur += l
 
         pred = model.predict(song_X)
+        y_pred.append(pred)
 
-        correct += np.sum(pred == song_y)
-        total += l
-        
-    print("accuracy:", correct / total)
+    y_pred = np.concatenate(y_pred)
+
+    print("accuracy:", accuracy_score(y_test, y_pred))
+
+    plot_confusion_matrix(y_test, y_pred, "hmm2.png")

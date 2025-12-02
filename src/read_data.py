@@ -116,6 +116,3 @@ def preprocess(chord_df, chroma_df):
 
     return X, y, lengths
 
-
-if __name__ == "__main__":
-    load_data()
